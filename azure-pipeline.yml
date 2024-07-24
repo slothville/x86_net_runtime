@@ -11,17 +11,19 @@ resources:
   repositories:
   - repository: runtime
     type: github
-    endpoint: Servarr
+    endpoint: netplatform
     name: dotnet/runtime
     ref: release/6.0
     
 trigger:
   branches:
     include:
-    - v6
+    - main
+    # - v6
 
 pr:
-- v6
+- main
+# - v6
 
 stages:
   - stage: Runtime
