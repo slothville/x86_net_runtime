@@ -10,10 +10,10 @@ variables:
 resources:
   repositories:
   - repository: runtime
-    type: github
-    endpoint: netplatform
+    type: github    
     name: dotnet/runtime
     ref: release/6.0
+    endpoint: netplatform
     
 trigger:
   branches:
