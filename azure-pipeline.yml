@@ -1,23 +1,74 @@
-# Repo: MySpace/TemplateRepo
-# File: azure-pipeline.yml
+parameters:
+- name: runtimeBranch
+  displayName: Tag for runtime repository
+  type: string
+  default: v6.0.32
 
-name: cicd_ci
+variables:
+  runCounter: $[counter('runNumber', 1)]
 
+resources:
+  repositories:
+  - repository: runtime
+    type: github
+    endpoint: Servarr
+    name: dotnet/runtime
+    ref: release/6.0
+    
 trigger:
   branches:
     include:
-      - master
+    - v6
+
+pr:
+- v6
 
 stages:
-- stage: CI_Checks
-  jobs:
-  - job:
-    displayName: yamllint_checks
+  - stage: Runtime
+
     pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - script: |
-        python -m pip install --upgrade pip
-        pip install yamllint
-        yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}, new-line-at-end-of-file: disable, new-lines: disable}}" .
-      displayName: 'YAML Lint Checks'
+      vmImage: 'ubuntu-20.04'
+
+    jobs:
+      - job: Setup
+        steps:
+        - bash: |
+            BRANCH=${{ parameters.runtimeBranch }}
+            echo "##vso[build.updatebuildnumber]${BRANCH/\//-}-${RUNCOUNTER}"
+          displayName: Set Build Name
+
+      - job: Runtime
+        timeoutInMinutes: 0
+        steps:
+          - checkout: self
+          - checkout: runtime
+          - bash: |
+              
+              # set -e
+              # git -C runtime checkout ${{ parameters.runtimeBranch }}
+              # git -C runtime apply ../dotnet-linux-x86/patches/runtime/0001-Fix-duplicate-definition-of-_RUNTIME_FUNCTION-on-lin.patch
+              # git -C runtime cherry-pick -n 7263ce5562ffd4bc515269add609886ea3d907d8
+              # git -C runtime cherry-pick -n -Xtheirs 7d7b56e4416555c41c55ef2dc25d3f65d6c3d471
+              # git -C runtime cherry-pick -n -Xtheirs bfcb5426ebec6cbfa67d5ca09bcc4a1d5a5216a3
+              # sed -i 's/return/__SkipCrossArchBuild=0/' runtime/src/coreclr/build-runtime.sh
+              # sed -i '/AppHostRuntimeIdentifier/d' runtime/src/coreclr/tools/aot/crossgen2/crossgen2.csproj
+              # sed -i '/\/dnceng\/internal\//d' runtime/NuGet.config
+              # sed -i '/PublishReadyToRun Condition/a \ \ \ \ <PublishReadyToRun>false<\/PublishReadyToRun>' runtime/src/installer/pkg/sfx/Microsoft.NETCore.App/Microsoft.NETCore.App.Runtime.props
+              # sed -i '/crossgen-corelib/d' runtime/eng/Subsets.props
+            displayName: Checkout and patch
+          - bash: |
+              # docker build -t dotnet-linux-x86 - < dotnet-linux-x86/Dockerfile
+            displayName: Build cross root
+          - bash: |
+              # set -e
+              # source dotnet-linux-x86/common.sh
+              # calculate_build_id $(git -C runtime tag --points-at HEAD)
+              # echo $OFFICIALBUILDID
+
+              # docker run -v ${BUILD_SOURCESDIRECTORY}/runtime:/runtime dotnet-linux-x86 /runtime/eng/build.sh -ci -c Release -cross -os Linux -arch x86 /p:OfficialBuildId=$OFFICIALBUILDID -subset Clr.Native+Host.Native
+              # docker run -v ${BUILD_SOURCESDIRECTORY}/runtime:/runtime dotnet-linux-x86 /runtime/eng/build.sh -ci -c Release -cross -os Linux -arch x86 /p:OfficialBuildId=$OFFICIALBUILDID /p:AppHostSourcePath=/runtime/artifacts/obj/linux-x86.Release/apphost/standalone/apphost || true
+            displayName: Build Runtime
+            continueOnError: true
+          # - publish: '$(Build.SourcesDirectory)/runtime/artifacts/packages/Release/Shipping'
+          #   artifact: RuntimePackages
+          #   displayName: Publish Runtime
