@@ -10,7 +10,7 @@ variables:
 resources:
   repositories:
   - repository: runtime
-    type: github    
+    type: git    
     name: dotnet/runtime
     ref: release/6.0
     endpoint: netplatform
